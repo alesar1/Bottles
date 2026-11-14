@@ -35,6 +35,7 @@ from bottles.backend.wine.uninstaller import Uninstaller
 from bottles.backend.wine.winedbg import WineDbg
 from bottles.backend.wine.wineserver import WineServer
 from bottles.frontend.utils.gtk import GtkUtils
+from bottles.frontend.utils.program import guard_program_launch
 from bottles.frontend.utils.playtime import PlaytimeService
 from bottles.frontend.utils.sandbox_guard import guard_sandbox_launch
 from bottles.frontend.windows.fileassociations import FileAssociationsDialog
@@ -49,6 +50,7 @@ class ProgramEntry(Adw.ActionRow):
     __gtype_name__ = "ProgramEntry"
 
     # region Widgets
+    img_missing = Gtk.Template.Child()
     btn_menu = Gtk.Template.Child()
     btn_run = Gtk.Template.Child()
     btn_stop = Gtk.Template.Child()
@@ -187,9 +189,7 @@ class ProgramEntry(Adw.ActionRow):
         self.btn_add_steam_library.connect("clicked", self.add_to_library)
         self.btn_add_steam.connect("clicked", self.add_to_steam)
         self.btn_remove.connect("clicked", self.remove_program)
-        self.pop_actions.connect(
-            "notify::visible", self.__refresh_desktop_entry_state
-        )
+        self.pop_actions.connect("notify::visible", self.__refresh_desktop_entry_state)
 
         if not program.get("removed") and not is_steam and check_boot:
             self.__is_alive()
@@ -197,6 +197,13 @@ class ProgramEntry(Adw.ActionRow):
         # Update subtitle with playtime info
         if not is_steam:
             self.__update_subtitle()
+            RunAsync(
+                ManagerUtils.program_exists,
+                callback=lambda exists, error=False: self.img_missing.set_visible(
+                    exists is False and not error
+                ),
+                config=config, path=self.program.get("path"),
+            )
 
     def __program_icon_ready(self, icon, error):
         if error is None and isinstance(icon, str) and os.path.isfile(icon):
@@ -268,7 +275,9 @@ class ProgramEntry(Adw.ActionRow):
         dialog.present()
 
     @GtkUtils.run_in_main_loop
-    def __reset_buttons(self, result: bool | Result = False, _error=False):
+    def __reset_buttons(self, result: bool | Result | None = False, _error=False):
+        if result is None and _error:
+            result = False
         status = False
         if isinstance(result, Result):
             status = result.status
@@ -305,6 +314,14 @@ class ProgramEntry(Adw.ActionRow):
 
     def run_executable(self, _widget, with_terminal=False):
         self.pop_actions.popdown()  # workaround #1640
+
+        guard_program_launch(
+            self.window, self.config, self.program,
+            lambda: self.__check_security_and_launch(with_terminal),
+            on_check=lambda exists: self.img_missing.set_visible(exists is False),
+        )
+
+    def __check_security_and_launch(self, with_terminal=False):
 
         path = self.program.get("path")
         if (
@@ -351,11 +368,12 @@ class ProgramEntry(Adw.ActionRow):
                 return True
 
             def done(result=False, error=False):
-                self.__reset_buttons(result, error)
+                self.__reset_buttons(True if error else result, error)
                 start = timing.get("start")
                 path = self.program.get("path")
                 if (
-                    not with_terminal
+                    not error
+                    and not with_terminal
                     and self.window.settings.get_boolean("eagle-crash-detection")
                     and start is not None
                     and (time.monotonic() - start) < self.__crash_threshold_seconds

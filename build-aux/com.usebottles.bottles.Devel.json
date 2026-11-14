@@ -59,7 +59,7 @@
       "autoprune-unless": "active-gl-driver"
     },
     "org.freedesktop.Platform.GL32.Debug": {
-      "directory": "lib/debug/lib/i386-linux-gnu/GL",
+      "directory": "lib/GL32.Debug",
       "version": "1.4",
       "versions": "25.08;25.08-extra;1.4",
       "subdirectories": true,
@@ -262,8 +262,8 @@
         {
           "type": "git",
           "url": "https://github.com/ImageMagick/ImageMagick",
-          "tag": "7.1.2-29",
-          "commit": "360eda553586e389c9c725fc49df94f209a8a3c7",
+          "tag": "7.1.2-34",
+          "commit": "a0c4bf729a26a5c2feb28b0365b47a8db736078a",
           "x-checker-data": {
             "type": "git",
             "tag-pattern": "^([\\d.]+-[\\d]+)$"
@@ -285,8 +285,8 @@
         {
           "type": "git",
           "url": "https://github.com/flatpak/libportal",
-          "tag": "0.10.0",
-          "commit": "c23024018c8eb076549a1517fcb2d7f80d3e2ed5",
+          "tag": "0.11.0",
+          "commit": "fc4d62cfe131e8494c82f597f92b2234d584c367",
           "x-checker-data": {
             "type": "git",
             "is-important": true,
@@ -398,7 +398,9 @@
         "mkdir -p /app/lib/i386-linux-gnu",
         "mkdir -p /app/lib/debug/lib/i386-linux-gnu",
         "mkdir -p /app/lib/i386-linux-gnu/GL",
-        "mkdir -p /app/lib/debug/lib/i386-linux-gnu/GL",
+        "mkdir -p /app/lib/GL32.Debug",
+        "test ! -e /app/lib/debug/lib/i386-linux-gnu/GL || rmdir /app/lib/debug/lib/i386-linux-gnu/GL",
+        "ln -s ../../../GL32.Debug /app/lib/debug/lib/i386-linux-gnu/GL",
         "mkdir -p /app/lib/i386-linux-gnu/dri/intel-vaapi-driver",
         "mkdir -p /app/i386/nvidia-vaapi-driver",
         "mkdir -p /app/lib/i386-linux-gnu/codecs-extra"

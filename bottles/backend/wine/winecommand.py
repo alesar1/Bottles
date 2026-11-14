@@ -132,9 +132,11 @@ def _wayland_available(env: "WineEnv") -> bool:
 
 
 def apply_wayland_preferences(
-    env: "WineEnv", params, xlocale_dir: Optional[str] = None
+    env: "WineEnv", params, xlocale_dir: Optional[str] = None, proton: bool = False
 ) -> None:
-    proton_wayland_enabled = _proton_option_enabled(env.get_value, "WAYLAND")
+    proton_wayland_enabled = _proton_option_enabled(env.get_value, "WAYLAND") or (
+        proton and getattr(params, "wayland", False)
+    )
     if not _wayland_requested(env, params):
         return
     if DisplayUtils.display_server_type() != "wayland":
@@ -406,6 +408,7 @@ class WineCommand:
         sandbox_override: Optional[str] = None,
         forced_dll_overrides: Optional[str] = None,
         capture_exit_code: bool = False,
+        capture_stderr: bool = False,
     ):
         _environment = environment.copy()
         self.config = self._get_config(config)
@@ -440,6 +443,7 @@ class WineCommand:
         self.terminal = terminal
         self.env = self.get_env(_environment)
         self.communicate = communicate
+        self.capture_stderr = capture_stderr and communicate
         self.colors = colors
         self.vmtouch_files = None
         self.returncode = None
@@ -576,6 +580,9 @@ class WineCommand:
         gpu = GPUUtils().get_gpu()
         DisplayUtils.check_nvidia_device()
         ld = []
+
+        if not clean_env and self.runner:
+            env.add("WINE", shlex.split(self.runner)[0], override=True)
 
         # Bottle environment variables
         if _needs_steam_virtual_gamepad_workaround(config.Runner) and not env.has(
@@ -850,7 +857,7 @@ class WineCommand:
             candidate = os.path.join(runner_path, "share/X11/locale")
             if os.path.isdir(candidate):
                 xlocale_dir = candidate
-        apply_wayland_preferences(env, params, xlocale_dir)
+        apply_wayland_preferences(env, params, xlocale_dir, proton=bool(proton_path))
         apply_hdr_preferences(
             env,
             params,
@@ -883,6 +890,8 @@ class WineCommand:
             env.add("WINEESYNC", "1")
         elif sync == "fsync":
             env.add("WINEFSYNC", "1")
+            # Wine 11 runners prefer ntsync over fsync unless told not to
+            env.add("PROTON_NO_NTSYNC", "1")
         elif sync in ("wine", "ntsync"):
             if is_ntsync_available(runner):
                 env.add("WINENTSYNC", "1")
@@ -1377,6 +1386,7 @@ raise SystemExit(status if status >= 0 else 128 - status)
                 proc = subprocess.Popen(
                     self.command,
                     stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE if self.capture_stderr else None,
                     shell=True,
                     env=self.env,
                     cwd=self.cwd,
@@ -1390,7 +1400,9 @@ raise SystemExit(status if status >= 0 else 128 - status)
             return Result(True)
 
         try:
-            stdout_data, _ = proc.communicate()
+            stdout_data, stderr_data = proc.communicate()
+            if self.capture_stderr:
+                stdout_data = b"\n".join(data for data in (stdout_data, stderr_data) if data)
         finally:
             self._clear_exit_code_capture()
 

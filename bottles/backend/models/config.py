@@ -134,6 +134,7 @@ class BottleParams(DictCompatMixIn):
     fsr: bool = False
     fsr_sharpening_strength: int = 8
     custom_dpi: int = 96
+    dpi_scaling: str = "default"
     renderer: str = "gl"
     discrete_gpu: bool = False
     virtual_desktop: bool = False
@@ -164,6 +165,7 @@ class BottleParams(DictCompatMixIn):
 @dataclass
 class BottleConfig(DictCompatMixIn):
     Name: str = ""
+    Notes: str = ""
     Arch: str = "win64"  # Enum, Use bottles.backend.models.enum.Arch
     Windows: str = "win10"
     Runner: str = ""  # runner name, "sys-*", or any installed runner name

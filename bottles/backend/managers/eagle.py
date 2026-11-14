@@ -728,9 +728,10 @@ class EagleManager:
             self._send_step("Analysing Rich header...")
             try:
                 if hasattr(pe, 'RICH_HEADER') and pe.RICH_HEADER:
-                    for entry in pe.RICH_HEADER.values:
-                        if entry['prodid'] in self.VS_PRODUCTS:
-                            metadata["compiler"] = self.VS_PRODUCTS[entry['prodid']]
+                    for entry in pe.RICH_HEADER.values[::2]:
+                        if entry >> 16 in self.VS_PRODUCTS:
+                            header = pe.OPTIONAL_HEADER
+                            metadata["compiler"] = f"Microsoft tools (linker {header.MajorLinkerVersion}.{header.MinorLinkerVersion})"
                             self._send_step(f"Compiler: {metadata['compiler']}")
                             break
             except:
@@ -884,7 +885,7 @@ class EagleManager:
                 if (is_root_launcher
                         and "shipping" not in basename.lower()
                         and os.path.getsize(executable_path) < 1_048_576):
-                    self._send_step("[!] Unreal Engine bootstrapper detected – searching for shipping binary...")
+                    self._send_step("[!] Unreal Engine bootstrapper detected - searching for shipping binary...")
                     try:
                         with os.scandir(exe_dir) as it:
                             for entry in it:
@@ -1085,18 +1086,18 @@ class EagleManager:
             if has_mono and net_runtimes:
                  # Both detected: recommend Mono first
                  suggestions.append({"key": "dep_mono", "value": False, "label": "Wine Mono (Recommended first)"})
-                 for rt in set(net_runtimes):
+                 for rt in sorted(set(net_runtimes)):
                      suggestions.append({"key": "dep_dotnet", "value": False, "label": f"{rt} (Try Mono first)"})
             else:
                  # Standard behavior
-                 for rt in set(net_runtimes):
+                 for rt in sorted(set(net_runtimes)):
                      suggestions.append({"key": "dep_dotnet", "value": False, "label": rt})
                  if has_mono and not net_runtimes:
                       suggestions.append({"key": "dep_mono", "value": False, "label": "Wine Mono"})
 
             vcpp = [r for r in flat_insights.get("Runtimes", []) if "VC++" in r]
             if vcpp:
-                suggestions.append({"key": "dep_vcredist", "value": False, "label": f"Visual C++ ({', '.join(set(vcpp))})"})
+                suggestions.append({"key": "dep_vcredist", "value": False, "label": f"Visual C++ ({', '.join(sorted(set(vcpp)))})"})
 
             if not dpi_aware:
                 suggestions.append({"key": "virtual_desktop", "value": False, "label": "Virtual Desktop (DPI)"})
