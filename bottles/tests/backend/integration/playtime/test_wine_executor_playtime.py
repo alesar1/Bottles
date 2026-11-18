@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 
 from bottles.backend.managers.manager import Manager
+from bottles.backend.utils.gsettings_stub import GSettingsStub
 from bottles.backend.managers.playtime import ProcessSessionTracker
 from bottles.backend.models.config import BottleConfig
 from bottles.backend.wine.executor import WineExecutor
@@ -10,7 +11,7 @@ from bottles.backend.wine.winepath import WinePath
 from bottles.backend.models.result import Result
 
 
-class _Settings:
+class _Settings(GSettingsStub):
     def get_boolean(self, key: str) -> bool:
         return True if key == "playtime-enabled" else False
 
@@ -52,8 +53,8 @@ def test_wine_executor_emits_and_updates_totals(mocker):
 
         # Stub WinePath conversions to avoid system calls / missing libs
         # Instance methods are bound; side_effect receives only the path argument
-        mocker.patch.object(WinePath, "to_unix", side_effect=lambda path: path)
-        mocker.patch.object(WinePath, "to_windows", side_effect=lambda path: path)
+        mocker.patch.object(WinePath, "to_unix", side_effect=lambda path, **_kwargs: path)
+        mocker.patch.object(WinePath, "to_windows", side_effect=lambda path, **_kwargs: path)
 
         execu = WineExecutor(
             config=_config("b1"),
